@@ -11,6 +11,30 @@ The plugin provides a `Services -> Gatus` page where you can:
 - tune runtime options (user, log level, startup delay)
 - edit the full `gatus.yaml` file from the UI
 
+## Integrate the repo in OPNsense (automatic updates)
+
+Create a pkg repository file on the firewall:
+
+```sh
+cat >/usr/local/etc/pkg/repos/gatus.conf <<'EOF'
+gatus: {
+  url: "https://daniel-k.github.io/opnsense-plugin-gatus/${ABI}",
+  mirror_type: "none",
+  signature_type: "none",
+  enabled: yes
+}
+EOF
+pkg update -f
+```
+
+Then install from the repo:
+
+```sh
+pkg install os-gatus
+```
+
+After this, `os-gatus` and `gatus` are eligible for normal update flows (`pkg upgrade` and OPNsense firmware/plugin updates).
+
 ## Repository layout
 
 - `ports/www/gatus`: FreeBSD port for `gatus`
@@ -170,29 +194,3 @@ Published layout:
 - example ABI path for this build: `FreeBSD:14:amd64`
 
 To enable publishing, set repository Pages source to **GitHub Actions**.
-
-## Integrate the repo in OPNsense (automatic updates)
-
-Create a pkg repository file on the firewall:
-
-```sh
-cat >/usr/local/etc/pkg/repos/gatus.conf <<'EOF'
-gatus: {
-  url: "https://daniel-k.github.io/opnsense-plugin-gatus/${ABI}",
-  mirror_type: "none",
-  signature_type: "none",
-  enabled: yes
-}
-EOF
-pkg update -f
-```
-
-Then install from the repo:
-
-```sh
-pkg install os-gatus
-```
-
-After this, `os-gatus` and `gatus` are eligible for normal update flows (`pkg upgrade` and OPNsense firmware/plugin updates).
-
-Important: updates are only offered when package versions increase (`DISTVERSION`, `PLUGIN_VERSION`, or `PLUGIN_REVISION`).
