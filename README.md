@@ -1,4 +1,4 @@
-# opnsense-gatus
+# opnsense-plugin-gatus
 
 Builds two packages for OPNsense amd64:
 
