@@ -38,5 +38,8 @@ cp "${ROOT_DIR}/net-mgmt/gatus"/work/pkg/*.pkg "${PACKAGES_DIR}/"
 echo "==> Generating pkg repository metadata"
 pkg repo "${PACKAGES_DIR}"
 
+echo "==> Recording package ABI"
+pkg config ABI > "${ARTIFACT_ROOT}/ABI"
+
 echo "==> Build output"
 ls -1 "${PACKAGES_DIR}"
