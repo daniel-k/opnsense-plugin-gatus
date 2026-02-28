@@ -53,6 +53,31 @@ GitHub Actions does two things:
 1. builds both packages on FreeBSD and uploads them as an artifact
 2. publishes a FreeBSD pkg repository to GitHub Pages
 
+The FreeBSD build job also uses a GitHub Actions cache for:
+
+- `/usr/ports/distfiles` (source tarballs/patches fetched by ports)
+- `/var/cache/pkg` (`pkg` download cache)
+
+This reduces repeated network downloads on later runs. A new cache is populated
+automatically after a cache miss.
+
+### Refreshing the CI cache (important)
+
+Cache key version is defined in `.github/workflows/build.yml` as:
+`freebsd-14_3-downloads-v1-...`
+
+To force a fresh cache generation, bump the `v1` part (for example to `v2`),
+commit, and push. The first run after the bump is expected to be slower (cold
+cache). The next runs should be faster again.
+
+When to refresh on purpose:
+
+- after changing FreeBSD release in CI (for example `14.3` -> `14.4`)
+- after major dependency/toolchain shifts that change many downloads
+- when cache content appears stale/corrupt (unexpected fetch/checksum failures
+  that disappear after retry)
+- when download behavior regresses and logs show too many cache misses
+
 Published layout:
 
 - `https://<owner>.github.io/<repo>/<ABI>/...`
