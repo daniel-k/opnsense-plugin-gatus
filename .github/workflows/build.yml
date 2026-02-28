@@ -1,0 +1,40 @@
+name: build-packages
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  freebsd:
+    runs-on: ubuntu-latest
+    name: FreeBSD package build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build gatus and os-gatus
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: '14.3'
+          prepare: |
+            set -eux
+            pkg update -f
+            pkg install -y git
+            if [ ! -d /usr/ports/.git ]; then
+              rm -rf /usr/ports
+              git clone --depth 1 https://git.FreeBSD.org/ports.git /usr/ports
+            fi
+          run: |
+            set -eux
+            ./scripts/build-packages.sh
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: freebsd-amd64-packages
+          path: artifacts/All/
+          if-no-files-found: error

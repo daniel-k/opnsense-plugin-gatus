@@ -1,0 +1,9 @@
+<acl>
+    <page-services-gatus>
+        <name>Services: Gatus</name>
+        <patterns>
+            <pattern>ui/gatus/*</pattern>
+            <pattern>api/gatus/*</pattern>
+        </patterns>
+    </page-services-gatus>
+</acl>

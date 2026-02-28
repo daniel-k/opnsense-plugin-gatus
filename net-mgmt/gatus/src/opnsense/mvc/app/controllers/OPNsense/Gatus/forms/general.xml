@@ -1,0 +1,33 @@
+<form>
+  <field>
+    <id>general.enabled</id>
+    <label>Enabled</label>
+    <type>checkbox</type>
+    <help>Enable the Gatus service.</help>
+  </field>
+  <field>
+    <id>general.runas</id>
+    <label>Run As User</label>
+    <type>text</type>
+    <help>System user used to run the service.</help>
+  </field>
+  <field>
+    <id>general.loglevel</id>
+    <label>Log Level</label>
+    <type>dropdown</type>
+    <help>Runtime log verbosity passed to Gatus.</help>
+  </field>
+  <field>
+    <id>general.delaystartseconds</id>
+    <label>Delay Start (Seconds)</label>
+    <type>text</type>
+    <help>Delay startup after boot.</help>
+  </field>
+  <field>
+    <id>general.config</id>
+    <label>gatus.yaml</label>
+    <type>textbox</type>
+    <height>24</height>
+    <help>Contents written to /usr/local/etc/gatus.yaml.</help>
+  </field>
+</form>

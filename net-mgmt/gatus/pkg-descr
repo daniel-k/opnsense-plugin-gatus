@@ -1,0 +1,5 @@
+Gatus is a developer-oriented status page and health monitoring service.
+This plugin integrates Gatus into OPNsense and adds a web UI page to
+manage the generated gatus.yaml configuration.
+
+WWW: https://gatus.io
