@@ -47,13 +47,23 @@ After this, `os-gatus` and `gatus` are eligible for normal update flows (`pkg up
 ./scripts/build-packages.sh
 ```
 
+By default this builds the release plugin package (`os-gatus`), even though
+the OPNsense plugin tooling defaults to devel mode on master branches.
+
+To intentionally build the devel plugin package (`os-gatus-devel`):
+
+```sh
+PLUGIN_DEVEL_MODE=devel ./scripts/build-packages.sh
+```
+
 Prerequisite: FreeBSD ports tree available at `/usr/ports` (for example:
 `git clone --depth 1 https://git.FreeBSD.org/ports.git /usr/ports`).
 
 Artifacts end up in `artifacts/All/`:
 
 - `gatus-<version>.pkg`
-- `os-gatus-<version>.pkg`
+- `os-gatus-<version>.pkg` (or `os-gatus-devel-<version>.pkg` when
+  `PLUGIN_DEVEL_MODE=devel`)
 - repository metadata (`packagesite.pkg`, `meta.conf`, ...)
 - ABI marker (`artifacts/ABI`)
 
@@ -68,6 +78,8 @@ Artifacts end up in `artifacts/All/`:
    ```sh
    pkg add ./os-gatus-<version>.pkg
    ```
+   If you built with `PLUGIN_DEVEL_MODE=devel`, install
+   `os-gatus-devel-<version>.pkg` instead.
 4. Open `Services -> Gatus` in the web UI and configure/save.
 
 ## CI
