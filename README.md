@@ -92,7 +92,7 @@ Create a pkg repository file on the firewall:
 ```sh
 cat >/usr/local/etc/pkg/repos/gatus.conf <<'EOF'
 gatus: {
-  url: "pkg+https://<owner>.github.io/<repo>/${ABI}",
+  url: "https://daniel-k.github.io/opnsense-plugin-gatus/${ABI}",
   mirror_type: "none",
   signature_type: "none",
   enabled: yes
