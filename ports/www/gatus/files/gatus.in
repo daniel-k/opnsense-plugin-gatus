@@ -28,7 +28,7 @@ load_rc_config $name
 : ${gatus_runas:="%%USER%%"}
 : ${gatus_config:="%%PREFIX%%/etc/${name}.yaml"}
 
-gatus_managed_data_dir="/usr/local/opnsense/gatus"
+gatus_managed_data_dir="/var/db/gatus"
 gatus_env="GATUS_CONFIG_PATH=${gatus_config} GATUS_LOG_LEVEL=${gatus_log_level} GATUS_DELAY_START_SECONDS=${gatus_delay_start_seconds}"
 pidfile="/var/run/${name}.pid"
 procname="%%LOCALBASE%%/bin/${name}"

@@ -16,7 +16,7 @@ class GeneralController extends ApiMutableModelControllerBase
         . "\n"
         . "storage:\n"
         . "  type: sqlite\n"
-        . "  path: /usr/local/opnsense/gatus/gatus.db\n"
+        . "  path: /var/db/gatus/gatus.db\n"
         . "\n"
         . "endpoints:\n"
         . "  - name: example\n"
