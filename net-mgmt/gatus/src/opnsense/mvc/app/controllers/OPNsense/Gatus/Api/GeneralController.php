@@ -11,7 +11,10 @@ use OPNsense\Base\ApiMutableModelControllerBase;
 
 class GeneralController extends ApiMutableModelControllerBase
 {
-    private const DEFAULT_CONFIG = "endpoints:\n"
+    private const DEFAULT_CONFIG = "web:\n"
+        . "  port: 8080\n"
+        . "\n"
+        . "endpoints:\n"
         . "  - name: example\n"
         . "    group: default\n"
         . "    url: \"https://example.com/\"\n"

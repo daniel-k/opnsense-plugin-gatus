@@ -4,6 +4,9 @@
 {% if helpers.exists('OPNsense.Gatus.config') and OPNsense.Gatus.config|default("") != "" %}
 {{ OPNsense.Gatus.config }}
 {% else %}
+web:
+  port: 8080
+
 endpoints:
   - name: example
     group: default
