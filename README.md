@@ -48,12 +48,16 @@ Artifacts end up in `artifacts/All/`:
 
 ## CI
 
-GitHub Actions does two things:
+GitHub Actions is split into two workflows:
 
-1. builds both packages on FreeBSD and uploads them as an artifact
-2. publishes a FreeBSD pkg repository to GitHub Pages
+1. `.github/workflows/build.yml` (push/PR/manual): builds both packages on
+   FreeBSD and uploads them as an artifact (no publishing)
+2. `.github/workflows/release.yml` (GitHub release `published`): rebuilds both
+   packages and publishes the pkg repository to GitHub Pages
 
-The FreeBSD build job also uses a GitHub Actions cache for:
+Only explicit GitHub releases publish to Pages.
+
+Both workflows use a GitHub Actions cache for:
 
 - `/usr/ports/distfiles` (source tarballs/patches fetched by ports)
 - `/var/cache/pkg` (`pkg` download cache)
@@ -63,12 +67,14 @@ automatically after a cache miss.
 
 ### Refreshing the CI cache (important)
 
-Cache key version is defined in `.github/workflows/build.yml` as:
+Cache key version is defined in both `.github/workflows/build.yml` and
+`.github/workflows/release.yml` as:
 `freebsd-14_3-downloads-v1-...`
 
 To force a fresh cache generation, bump the `v1` part (for example to `v2`),
-commit, and push. The first run after the bump is expected to be slower (cold
-cache). The next runs should be faster again.
+commit, and push (keep both workflow files in sync). The first run after the
+bump is expected to be slower (cold cache). The next runs should be faster
+again.
 
 When to refresh on purpose:
 
@@ -77,6 +83,86 @@ When to refresh on purpose:
 - when cache content appears stale/corrupt (unexpected fetch/checksum failures
   that disappear after retry)
 - when download behavior regresses and logs show too many cache misses
+
+### Release tag format
+
+Releases must use this exact tag format:
+
+`rel/gatus-v<GATUS_PKGVER>+os-gatus-v<PLUGIN_PKGVER>`
+
+Where:
+
+- `GATUS_PKGVER` = `DISTVERSION` + `_PORTREVISION` when `PORTREVISION > 0`
+- `PLUGIN_PKGVER` = `PLUGIN_VERSION` + `_PLUGIN_REVISION` when
+  `PLUGIN_REVISION > 0`
+
+Example:
+
+`rel/gatus-v5.35.0+os-gatus-v1.0_1`
+
+The release workflow validates that the release tag matches the versions in the
+repository at the tagged commit.
+
+### Release helper tooling
+
+Use `scripts/release.sh` to inspect versions, bump revisions, and create tags /
+GitHub releases.
+
+Show current versions and computed tag:
+
+```sh
+./scripts/release.sh show
+```
+
+Print only the computed tag:
+
+```sh
+./scripts/release.sh tag
+```
+
+Set explicit versions:
+
+```sh
+# Set upstream gatus version and reset PORTREVISION to 0
+./scripts/release.sh set-gatus 5.36.0
+
+# Set upstream gatus version + explicit PORTREVISION
+./scripts/release.sh set-gatus 5.36.0 1
+
+# Set plugin version + optional revision (default revision: 0)
+./scripts/release.sh set-plugin 1.1
+./scripts/release.sh set-plugin 1.1 2
+```
+
+Bump only packaging revisions:
+
+```sh
+./scripts/release.sh bump-gatus-revision
+./scripts/release.sh bump-plugin-revision
+```
+
+Create release tag and release:
+
+```sh
+# Create local annotated tag from current versions
+./scripts/release.sh create-tag
+
+# Create and push tag in one step
+./scripts/release.sh create-tag --push
+
+# Create a GitHub release with the computed tag (requires gh CLI auth)
+./scripts/release.sh create-gh-release
+```
+
+`create-gh-release` creates the GitHub release directly (and auto-generates
+release notes by default), which triggers publishing to GitHub Pages.
+
+Recommended release flow:
+
+1. bump versions (`set-gatus`, `set-plugin`, or revision bump commands)
+2. commit + push to `master`
+3. create release (`./scripts/release.sh create-gh-release`)
+4. wait for `.github/workflows/release.yml` to publish Pages
 
 Published layout:
 
