@@ -28,6 +28,6 @@
     <label>gatus.yaml</label>
     <type>textbox</type>
     <height>24</height>
-    <help>Contents written to /usr/local/etc/gatus.yaml.</help>
+    <help>Contents written to /usr/local/etc/gatus.yaml. /usr/local/opnsense/gatus is managed by the plugin (owned by the configured Run As user with restrictive permissions) and can be used for persistent data such as /usr/local/opnsense/gatus/gatus.db.</help>
   </field>
 </form>

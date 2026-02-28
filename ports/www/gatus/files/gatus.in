@@ -28,10 +28,43 @@ load_rc_config $name
 : ${gatus_runas:="%%USER%%"}
 : ${gatus_config:="%%PREFIX%%/etc/${name}.yaml"}
 
+gatus_managed_data_dir="/usr/local/opnsense/gatus"
 gatus_env="GATUS_CONFIG_PATH=${gatus_config} GATUS_LOG_LEVEL=${gatus_log_level} GATUS_DELAY_START_SECONDS=${gatus_delay_start_seconds}"
 pidfile="/var/run/${name}.pid"
 procname="%%LOCALBASE%%/bin/${name}"
 command="/usr/sbin/daemon"
 command_args="-c -u ${gatus_runas} -o ${gatus_log} -p ${pidfile} -t \"${desc}\" ${procname}"
+start_precmd="gatus_prepare_managed_data_dir"
+
+gatus_prepare_managed_data_dir()
+{
+	local gatus_group
+
+	if ! id -u "${gatus_runas}" >/dev/null 2>&1; then
+		echo "${name}: configured user '${gatus_runas}' does not exist"
+		return 1
+	fi
+
+	gatus_group="$(id -gn "${gatus_runas}" 2>/dev/null)"
+	if [ -z "${gatus_group}" ]; then
+		echo "${name}: unable to determine primary group for '${gatus_runas}'"
+		return 1
+	fi
+
+	if ! install -d -m 0700 -o "${gatus_runas}" -g "${gatus_group}" "${gatus_managed_data_dir}"; then
+		echo "${name}: failed to create ${gatus_managed_data_dir}"
+		return 1
+	fi
+
+	if ! chown -R "${gatus_runas}:${gatus_group}" "${gatus_managed_data_dir}"; then
+		echo "${name}: failed to set ownership on ${gatus_managed_data_dir}"
+		return 1
+	fi
+
+	if ! chmod -R u+rwX,go-rwx "${gatus_managed_data_dir}"; then
+		echo "${name}: failed to set permissions on ${gatus_managed_data_dir}"
+		return 1
+	fi
+}
 
 run_rc_command "$1"
