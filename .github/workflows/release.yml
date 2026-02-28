@@ -12,6 +12,8 @@ jobs:
   freebsd:
     runs-on: ubuntu-latest
     name: FreeBSD package build
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -56,6 +58,22 @@ jobs:
           run: |
             set -eux
             ./scripts/build-packages.sh
+
+      - name: Attach gatus packages to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          TAG="${{ github.event.release.tag_name }}"
+          GATUS_PKG="$(find artifacts/All -maxdepth 1 -type f -name 'gatus-*.pkg' | head -n 1)"
+          OS_GATUS_PKG="$(find artifacts/All -maxdepth 1 -type f -name 'os-gatus-*.pkg' | head -n 1)"
+
+          if [ -z "${GATUS_PKG}" ] || [ -z "${OS_GATUS_PKG}" ]; then
+            echo "error: expected gatus and os-gatus .pkg files in artifacts/All" >&2
+            exit 1
+          fi
+
+          gh release upload "${TAG}" "${GATUS_PKG}" "${OS_GATUS_PKG}" --clobber
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
