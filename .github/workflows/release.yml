@@ -93,7 +93,9 @@ jobs:
       pages: write
       id-token: write
     environment:
-      name: github-pages
+      # `release` workflows run from tags, so a protected default `github-pages`
+      # environment (default-branch-only) rejects the deployment before steps run.
+      name: github-pages-release
       url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
