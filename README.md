@@ -13,9 +13,12 @@ The plugin provides a `Services -> Gatus` page where you can:
 
 ## Integrate the repo in OPNsense (automatic updates)
 
-Create a pkg repository file on the firewall:
+Create a pkg repository file on the firewall. **Note:** the OPNsense root shell
+is `tcsh`, which does not support `<<EOF` here-documents. Either switch to a
+POSIX shell first:
 
 ```sh
+sh
 cat >/usr/local/etc/pkg/repos/gatus.conf <<'EOF'
 gatus: {
   url: "https://daniel-k.github.io/opnsense-plugin-gatus/${ABI}",
@@ -24,6 +27,19 @@ gatus: {
   enabled: yes
 }
 EOF
+exit
+```
+
+…or, to stay in `tcsh`, write it with a single `printf` (the single quotes keep
+`${ABI}` literal so `pkg` — not the shell — expands it):
+
+```sh
+printf 'gatus: {\n  url: "https://daniel-k.github.io/opnsense-plugin-gatus/${ABI}",\n  mirror_type: "none",\n  signature_type: "none",\n  enabled: yes\n}\n' > /usr/local/etc/pkg/repos/gatus.conf
+```
+
+Then update:
+
+```sh
 pkg update -f
 ```
 
