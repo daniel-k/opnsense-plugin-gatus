@@ -11,9 +11,29 @@ permissions:
 jobs:
   freebsd:
     runs-on: ubuntu-latest
-    name: FreeBSD package build
+    name: "FreeBSD ${{ matrix.freebsd }} (OPNsense ${{ matrix.opnsense_abi }})"
     permissions:
       contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep this list in sync with .github/workflows/build.yml.
+        #
+        # `freebsd`      FreeBSD release the packages are built on. It has to
+        #                match the base of the targeted OPNsense release,
+        #                because it determines the pkg ABI.
+        # `opnsense_abi` OPNsense release the plugin is annotated for
+        #                (`product_abi`). Without it the plugin tooling falls
+        #                back to the default in Mk/defaults.mk.
+        # `pkg_abi`      Expected pkg ABI, also the published repo directory.
+        include:
+          - freebsd: "15.1"
+            opnsense_abi: "26.7"
+            pkg_abi: "FreeBSD:15:amd64"
+          - freebsd: "14.3"
+            opnsense_abi: "26.1"
+            pkg_abi: "FreeBSD:14:amd64"
 
     steps:
       - name: Checkout
@@ -34,14 +54,14 @@ jobs:
           path: |
             .ci-cache/distfiles
             .ci-cache/pkg
-          key: freebsd-14_3-downloads-v1-${{ hashFiles('ports/www/gatus/Makefile', 'ports/www/gatus/distinfo', 'scripts/build-packages.sh') }}
+          key: freebsd-${{ matrix.freebsd }}-downloads-v2-${{ hashFiles('ports/www/gatus/Makefile', 'ports/www/gatus/distinfo', 'scripts/build-packages.sh') }}
           restore-keys: |
-            freebsd-14_3-downloads-v1-
+            freebsd-${{ matrix.freebsd }}-downloads-v2-
 
       - name: Build gatus and os-gatus
         uses: vmactions/freebsd-vm@v1
         with:
-          release: "14.3"
+          release: "${{ matrix.freebsd }}"
           prepare: |
             set -eux
             mkdir -p "${GITHUB_WORKSPACE}/.ci-cache/distfiles" "${GITHUB_WORKSPACE}/.ci-cache/pkg"
@@ -57,11 +77,14 @@ jobs:
             ln -s "${GITHUB_WORKSPACE}/.ci-cache/pkg" /var/cache/pkg
           run: |
             set -eux
+            export PLUGIN_ABIS="${{ matrix.opnsense_abi }}"
+            export EXPECTED_PKG_ABI="${{ matrix.pkg_abi }}"
             ./scripts/build-packages.sh
 
       - name: Attach gatus packages to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          PKG_ABI: ${{ matrix.pkg_abi }}
         run: |
           set -eu
           TAG="${{ github.event.release.tag_name }}"
@@ -73,12 +96,21 @@ jobs:
             exit 1
           fi
 
-          gh release upload "${TAG}" "${GATUS_PKG}" "${OS_GATUS_PKG}" --clobber
+          # One release holds packages for several ABIs, so the asset names have
+          # to carry the ABI. GitHub asset names are global per release.
+          ABI_SLUG="$(printf '%s' "${PKG_ABI}" | tr ':' '-' | tr '[:upper:]' '[:lower:]')"
+          mkdir -p release-assets
+          for PKG in "${GATUS_PKG}" "${OS_GATUS_PKG}"; do
+            BASE="$(basename "${PKG}" .pkg)"
+            cp "${PKG}" "release-assets/${BASE}-${ABI_SLUG}.pkg"
+          done
+
+          gh release upload "${TAG}" release-assets/*.pkg --clobber
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: freebsd-amd64-packages
+          name: freebsd-amd64-packages-${{ matrix.freebsd }}
           path: |
             artifacts/All/
             artifacts/ABI
@@ -102,17 +134,33 @@ jobs:
       - name: Download built packages
         uses: actions/download-artifact@v4
         with:
-          name: freebsd-amd64-packages
-          path: pkg-artifact
+          pattern: freebsd-amd64-packages-*
+          path: pkg-artifacts
 
       - name: Build Pages content
         run: |
           set -eux
-          ABI="$(cat pkg-artifact/ABI)"
-          DEST="site/${ABI}"
 
-          mkdir -p "${DEST}"
-          cp -a pkg-artifact/All/. "${DEST}/"
+          # Pages deployments replace the whole site, so every supported ABI has
+          # to be part of this one deployment.
+          ABIS=""
+          for DIR in pkg-artifacts/*/; do
+            ABI="$(cat "${DIR}ABI")"
+            DEST="site/${ABI}"
+            mkdir -p "${DEST}"
+            cp -a "${DIR}All/." "${DEST}/"
+            ABIS="${ABIS} ${ABI}"
+          done
+
+          if [ -z "${ABIS}" ]; then
+            echo "error: no build artifacts found" >&2
+            exit 1
+          fi
+
+          ABI_LIST=""
+          for ABI in ${ABIS}; do
+            ABI_LIST="${ABI_LIST}<li><code>${ABI}</code></li>"
+          done
 
           cat > site/index.html <<EOF
           <!doctype html>
@@ -124,8 +172,10 @@ jobs:
           <body>
             <p>FreeBSD pkg repository for opnsense-plugin-gatus.</p>
             <p>Release tag: ${{ github.event.release.tag_name }}</p>
-            <p>Repository URL:</p>
+            <p>Repository URL (<code>\${ABI}</code> is expanded by pkg):</p>
             <pre>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/\${ABI}</pre>
+            <p>Published ABIs:</p>
+            <ul>${ABI_LIST}</ul>
           </body>
           </html>
           EOF

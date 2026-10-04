@@ -13,7 +13,27 @@ permissions:
 jobs:
   freebsd:
     runs-on: ubuntu-latest
-    name: FreeBSD package build
+    name: "FreeBSD ${{ matrix.freebsd }} (OPNsense ${{ matrix.opnsense_abi }})"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep this list in sync with .github/workflows/release.yml.
+        #
+        # `freebsd`      FreeBSD release the packages are built on. It has to
+        #                match the base of the targeted OPNsense release,
+        #                because it determines the pkg ABI.
+        # `opnsense_abi` OPNsense release the plugin is annotated for
+        #                (`product_abi`). Without it the plugin tooling falls
+        #                back to the default in Mk/defaults.mk.
+        # `pkg_abi`      Expected pkg ABI, also the published repo directory.
+        include:
+          - freebsd: "15.1"
+            opnsense_abi: "26.7"
+            pkg_abi: "FreeBSD:15:amd64"
+          - freebsd: "14.3"
+            opnsense_abi: "26.1"
+            pkg_abi: "FreeBSD:14:amd64"
 
     steps:
       - name: Checkout
@@ -29,14 +49,14 @@ jobs:
           path: |
             .ci-cache/distfiles
             .ci-cache/pkg
-          key: freebsd-14_3-downloads-v1-${{ hashFiles('ports/www/gatus/Makefile', 'ports/www/gatus/distinfo', 'scripts/build-packages.sh') }}
+          key: freebsd-${{ matrix.freebsd }}-downloads-v2-${{ hashFiles('ports/www/gatus/Makefile', 'ports/www/gatus/distinfo', 'scripts/build-packages.sh') }}
           restore-keys: |
-            freebsd-14_3-downloads-v1-
+            freebsd-${{ matrix.freebsd }}-downloads-v2-
 
       - name: Build gatus and os-gatus
         uses: vmactions/freebsd-vm@v1
         with:
-          release: "14.3"
+          release: "${{ matrix.freebsd }}"
           prepare: |
             set -eux
             mkdir -p "${GITHUB_WORKSPACE}/.ci-cache/distfiles" "${GITHUB_WORKSPACE}/.ci-cache/pkg"
@@ -52,12 +72,14 @@ jobs:
             ln -s "${GITHUB_WORKSPACE}/.ci-cache/pkg" /var/cache/pkg
           run: |
             set -eux
+            export PLUGIN_ABIS="${{ matrix.opnsense_abi }}"
+            export EXPECTED_PKG_ABI="${{ matrix.pkg_abi }}"
             ./scripts/build-packages.sh
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: freebsd-amd64-packages
+          name: freebsd-amd64-packages-${{ matrix.freebsd }}
           path: |
             artifacts/All/
             artifacts/ABI

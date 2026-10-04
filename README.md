@@ -35,6 +35,28 @@ pkg install os-gatus
 
 After this, `os-gatus` and `gatus` are eligible for normal update flows (`pkg upgrade` and OPNsense firmware/plugin updates).
 
+`${ABI}` is expanded by pkg from the FreeBSD base of the running OPNsense
+release, so the repository has to carry a directory per supported ABI.
+
+## Supported targets
+
+| OPNsense | FreeBSD base | pkg ABI             | built on FreeBSD |
+| -------- | ------------ | ------------------- | ---------------- |
+| 26.7     | 15.1         | `FreeBSD:15:amd64`  | 15.1             |
+| 26.1     | 14.3         | `FreeBSD:14:amd64`  | 14.3             |
+
+Packages are built per target and published side by side, so one repository URL
+serves every supported release.
+
+A major OPNsense upgrade changes `${ABI}`. If this repository does not yet carry
+a directory for the new ABI, `pkg update` fails with a 404 on `meta.conf`, which
+in turn makes the OPNsense firmware page fail to check for updates. See
+[Troubleshooting](#troubleshooting).
+
+The build target list lives in the `strategy.matrix` of both workflow files; add
+an entry there (and keep both files in sync) when a new OPNsense release moves
+to a new FreeBSD major version.
+
 ## Repository layout
 
 - `ports/www/gatus`: FreeBSD port for `gatus`
@@ -56,6 +78,17 @@ To intentionally build the devel plugin package (`os-gatus-devel`):
 PLUGIN_DEVEL_MODE=devel ./scripts/build-packages.sh
 ```
 
+Environment variables understood by `scripts/build-packages.sh`:
+
+- `PLUGIN_DEVEL_MODE` (`release` / `devel`, default `release`)
+- `PLUGIN_ABIS`: OPNsense release the plugin is annotated for (`product_abi`,
+  for example `26.7`). Unset means `opnsense-version -a` when building on a
+  firewall, otherwise the fallback in `Mk/defaults.mk`
+- `EXPECTED_PKG_ABI`: abort unless `pkg config ABI` equals this value (for
+  example `FreeBSD:15:amd64`). The pkg ABI comes from the FreeBSD major version
+  of the build host, so this guards against publishing packages the firewall
+  will refuse to install
+
 Prerequisite: FreeBSD ports tree available at `/usr/ports` (for example:
 `git clone --depth 1 https://git.FreeBSD.org/ports.git /usr/ports`).
 
@@ -65,7 +98,7 @@ Artifacts end up in `artifacts/All/`:
 - `os-gatus-<version>.pkg` (or `os-gatus-devel-<version>.pkg` when
   `PLUGIN_DEVEL_MODE=devel`)
 - repository metadata (`packagesite.pkg`, `meta.conf`, ...)
-- ABI marker (`artifacts/ABI`)
+- ABI marker (`artifacts/ABI`, used to place the packages in the published repo)
 
 ## Install manually on OPNsense (one-off)
 
@@ -91,6 +124,15 @@ GitHub Actions is split into two workflows:
 2. `.github/workflows/release.yml` (GitHub release `published`): rebuilds both
    packages and publishes the pkg repository to GitHub Pages
 
+Both workflows run a matrix over the targets in
+[Supported targets](#supported-targets), one job per FreeBSD release. The
+release workflow collects every matrix job's artifact and deploys all ABIs in a
+single Pages deployment, because a Pages deployment replaces the whole site.
+
+Release assets carry an ABI suffix (for example
+`os-gatus-1.1_2-freebsd-15-amd64.pkg`), since GitHub asset names are unique per
+release.
+
 Only explicit GitHub releases publish to Pages.
 
 Both workflows use a GitHub Actions cache for:
@@ -105,16 +147,18 @@ automatically after a cache miss.
 
 Cache key version is defined in both `.github/workflows/build.yml` and
 `.github/workflows/release.yml` as:
-`freebsd-14_3-downloads-v1-...`
+`freebsd-<release>-downloads-v2-...`
 
-To force a fresh cache generation, bump the `v1` part (for example to `v2`),
+The FreeBSD release is part of the key, so matrix jobs do not share a cache and
+adding a new target does not need a key bump.
+
+To force a fresh cache generation, bump the `v2` part (for example to `v3`),
 commit, and push (keep both workflow files in sync). The first run after the
 bump is expected to be slower (cold cache). The next runs should be faster
 again.
 
 When to refresh on purpose:
 
-- after changing FreeBSD release in CI (for example `14.3` -> `14.4`)
 - after major dependency/toolchain shifts that change many downloads
 - when cache content appears stale/corrupt (unexpected fetch/checksum failures
   that disappear after retry)
@@ -203,6 +247,45 @@ Recommended release flow:
 Published layout:
 
 - `https://<owner>.github.io/<repo>/<ABI>/...`
-- example ABI path for this build: `FreeBSD:14:amd64`
+- one directory per supported ABI, for example `FreeBSD:15:amd64` and
+  `FreeBSD:14:amd64`
 
 To enable publishing, set repository Pages source to **GitHub Actions**.
+
+## Troubleshooting
+
+### After a major OPNsense upgrade, `pkg update` and the firmware page fail
+
+A major OPNsense upgrade can change the FreeBSD base and therefore `${ABI}`
+(26.1 → 26.7 moved from `FreeBSD:14:amd64` to `FreeBSD:15:amd64`). Until this
+repository publishes packages for the new ABI, pkg gets a 404 for
+`<url>/meta.conf`. `pkg update` then exits non-zero, and because OPNsense runs
+`pkg update` across all configured repositories, the firmware page reports that
+it cannot check for updates — even for OPNsense's own packages.
+
+Check which ABI the firewall asks for:
+
+```sh
+pkg config ABI
+fetch -o /dev/null "https://daniel-k.github.io/opnsense-plugin-gatus/$(pkg config ABI)/meta.conf"
+```
+
+To get OPNsense updating again immediately, disable this repository:
+
+```sh
+sed -i '' 's/enabled: yes/enabled: no/' /usr/local/etc/pkg/repos/gatus.conf
+pkg update -f
+```
+
+Once packages for the new ABI are published, re-enable it and reinstall so the
+packages match the new base:
+
+```sh
+sed -i '' 's/enabled: no/enabled: yes/' /usr/local/etc/pkg/repos/gatus.conf
+pkg update -f
+pkg upgrade -f gatus os-gatus
+```
+
+The old packages stay installed across the upgrade but were built for the
+previous FreeBSD major version, so reinstalling them from the new ABI directory
+is what actually fixes the plugin.
