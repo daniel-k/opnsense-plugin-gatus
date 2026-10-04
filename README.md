@@ -88,8 +88,13 @@ Environment variables understood by `scripts/build-packages.sh`:
   example `FreeBSD:15:amd64`). The pkg ABI comes from the FreeBSD major version
   of the build host, so this guards against publishing packages the firewall
   will refuse to install
+- `PORTSDIR`: ports tree to build the `gatus` port against (default
+  `/usr/ports`)
+- `DISTDIR`: where ports keep fetched distfiles (default
+  `${PORTSDIR}/distfiles`); CI points this at its download cache
 
-Prerequisite: FreeBSD ports tree available at `/usr/ports` (for example:
+Prerequisite: a FreeBSD ports tree at `/usr/ports`, or `PORTSDIR` pointing at
+one (for example:
 `git clone --depth 1 https://git.FreeBSD.org/ports.git /usr/ports`).
 
 Artifacts end up in `artifacts/All/`:
@@ -156,6 +161,12 @@ To force a fresh cache generation, bump the `v2` part (for example to `v3`),
 commit, and push (keep both workflow files in sync). The first run after the
 bump is expected to be slower (cold cache). The next runs should be faster
 again.
+
+The VM also gets `IGNORE_OSVERSION` set, because FreeBSD's package repository
+for a branch tracks its newest minor release and is regularly ahead of the VM
+image (a 14.4 repo on a 14.3 image). This only affects build dependencies
+fetched during the build; packages produced by a job are stamped with the build
+host's version, which is what the targeted OPNsense release expects.
 
 When to refresh on purpose:
 

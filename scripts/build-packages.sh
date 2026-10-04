@@ -18,6 +18,13 @@ PLUGIN_ABIS=${PLUGIN_ABIS:-}
 # OPNsense, which pkg on the firewall would then refuse to install.
 EXPECTED_PKG_ABI=${EXPECTED_PKG_ABI:-}
 
+# FreeBSD ports tree the gatus port is built against.
+PORTSDIR=${PORTSDIR:-/usr/ports}
+
+# Where ports keep fetched distfiles. Empty uses the ports default
+# (${PORTSDIR}/distfiles); CI points it at a cached directory.
+DISTDIR=${DISTDIR:-}
+
 mkdir -p "${PACKAGES_DIR}"
 
 if ! command -v pkg >/dev/null 2>&1; then
@@ -33,17 +40,23 @@ if [ -n "${EXPECTED_PKG_ABI}" ] && [ "${PKG_ABI}" != "${EXPECTED_PKG_ABI}" ]; th
     exit 1
 fi
 
-if [ ! -f /usr/ports/Mk/bsd.port.mk ]; then
-    echo "error: /usr/ports is required (install the FreeBSD ports tree first)" >&2
+if [ ! -f "${PORTSDIR}/Mk/bsd.port.mk" ]; then
+    echo "error: '${PORTSDIR}' is not a FreeBSD ports tree" >&2
+    echo "       install the ports tree there or point PORTSDIR at one" >&2
     exit 1
 fi
 
 echo "==> Build target"
 echo "    pkg ABI:      ${PKG_ABI}"
 echo "    OPNsense ABI: ${PLUGIN_ABIS:-<plugin tooling default>}"
+echo "    ports tree:   ${PORTSDIR}"
 
 echo "==> Building gatus package"
-make -C "${ROOT_DIR}/ports/www/gatus" clean package BATCH=yes PACKAGES="${ARTIFACT_ROOT}"
+set -- clean package BATCH=yes PACKAGES="${ARTIFACT_ROOT}" PORTSDIR="${PORTSDIR}"
+if [ -n "${DISTDIR}" ]; then
+    set -- "$@" DISTDIR="${DISTDIR}"
+fi
+make -C "${ROOT_DIR}/ports/www/gatus" "$@"
 
 GATUS_PKG=$(find "${PACKAGES_DIR}" -maxdepth 1 -type f -name 'gatus-*.pkg' | head -n 1)
 if [ -z "${GATUS_PKG}" ]; then
