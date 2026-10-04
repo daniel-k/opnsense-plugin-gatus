@@ -40,13 +40,27 @@ release, so the repository has to carry a directory per supported ABI.
 
 ## Supported targets
 
-| OPNsense | FreeBSD base | pkg ABI             | built on FreeBSD |
-| -------- | ------------ | ------------------- | ---------------- |
-| 26.7     | 15.1         | `FreeBSD:15:amd64`  | 15.1             |
-| 26.1     | 14.3         | `FreeBSD:14:amd64`  | 14.3             |
+| OPNsense | FreeBSD base      | pkg ABI            | built on FreeBSD |
+| -------- | ----------------- | ------------------ | ---------------- |
+| 26.7     | 15.1 (`1501000`)  | `FreeBSD:15:amd64` | 15.1             |
+| 26.1     | 14.3 (`1403000`)  | `FreeBSD:14:amd64` | 14.3             |
 
 Packages are built per target and published side by side, so one repository URL
 serves every supported release.
+
+Each leg builds on the exact FreeBSD release the targeted OPNsense runs, because
+pkg on the firewall rejects a package whose `FreeBSD_version` is newer than its
+own userland. The base version per release is visible in OPNsense's own
+packages:
+
+```sh
+curl -s https://pkg.opnsense.org/FreeBSD:15:amd64/26.7/latest/packagesite.pkg \
+  | tar -xO packagesite.yaml | head -1 | grep -o '"FreeBSD_version":"[0-9]*"'
+```
+
+FreeBSD 14.3 is end-of-life, so the ports tree refuses to build on it. The 14
+leg therefore sets `ALLOW_UNSUPPORTED_SYSTEM`; upgrading that leg to 14.4+ is
+not an option, because the resulting packages would be rejected on 26.1.
 
 A major OPNsense upgrade changes `${ABI}`. If this repository does not yet carry
 a directory for the new ABI, `pkg update` fails with a 404 on `meta.conf`, which

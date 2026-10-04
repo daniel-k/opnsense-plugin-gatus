@@ -27,13 +27,24 @@ jobs:
         #                (`product_abi`). Without it the plugin tooling falls
         #                back to the default in Mk/defaults.mk.
         # `pkg_abi`      Expected pkg ABI, also the published repo directory.
+        # `allow_unsupported`
+        #                Set when the FreeBSD release is EOL and the ports tree
+        #                refuses to build on it. Upgrading the build host is not
+        #                an option: pkg on the firewall rejects packages stamped
+        #                with a FreeBSD version newer than its own userland.
+        #
+        # The FreeBSD release per target is not a guess. Every package in
+        # OPNsense 26.1 carries FreeBSD_version 1403000 (14.3), and every
+        # package in 26.7 carries 1501000 (15.1).
         include:
           - freebsd: "15.1"
             opnsense_abi: "26.7"
             pkg_abi: "FreeBSD:15:amd64"
+            allow_unsupported: ""
           - freebsd: "14.3"
             opnsense_abi: "26.1"
             pkg_abi: "FreeBSD:14:amd64"
+            allow_unsupported: "yes"
 
     steps:
       - name: Checkout
@@ -95,6 +106,11 @@ jobs:
             export DISTDIR="${GITHUB_WORKSPACE}/.ci-cache/distfiles"
             export PLUGIN_ABIS="${{ matrix.opnsense_abi }}"
             export EXPECTED_PKG_ABI="${{ matrix.pkg_abi }}"
+            # Only exported when non-empty: make treats an empty variable as
+            # defined, which would silence the check on supported releases too.
+            if [ -n "${{ matrix.allow_unsupported }}" ]; then
+              export ALLOW_UNSUPPORTED_SYSTEM="${{ matrix.allow_unsupported }}"
+            fi
             ./scripts/build-packages.sh
 
       - name: Attach gatus packages to GitHub release
